@@ -65,7 +65,7 @@ Then run `/premise-challenge <target>` in any session. The skill is user-invoked
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TB
     T["1 Set the target"] --> P["2 Load-bearing premises<br/>label each node's layer"]
     P --> V["3 Verify by layer"]
     V -- "cannot verify, or unsafe to test" --> UK["Mark unknown<br/>+ cheapest check"]
@@ -75,7 +75,7 @@ flowchart LR
     UP --> G{"Evidence that<br/>a premise is false?"}
     G -- "yes" --> OV["Overturn proposal (max 3)"]
     G -- "no" --> H["Holds, or gap"]
-    OV --> O["Output: verdict · premise tree · proposals · gaps · unknowns"]
+    OV --> O["Output: verdict · premise tree ·<br/>proposals · gaps · unknowns"]
     H --> O
     UK --> O
 ```

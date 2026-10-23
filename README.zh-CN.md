@@ -65,7 +65,7 @@ cp ~/.claude/skills/premise-challenge/agents/cold-designer.md ~/.claude/agents/
 ## 它怎么工作
 
 ```mermaid
-flowchart LR
+flowchart TB
     T["1 定靶子"] --> P["2 承重前提<br/>给每个节点标层级"]
     P --> V["3 按层级核实"]
     V -- "核不了，或测了不安全" --> UK["标为未知<br/>+ 最便宜的检验办法"]
@@ -75,7 +75,7 @@ flowchart LR
     UP --> G{"有证据证明<br/>前提不成立？"}
     G -- "有" --> OV["推翻提案（最多 3 条）"]
     G -- "没有" --> H["站得住，或列为缺口"]
-    OV --> O["产出：结论 · 前提树 · 提案 · 缺口 · 未知项"]
+    OV --> O["产出：结论 · 前提树 ·<br/>提案 · 缺口 · 未知项"]
     H --> O
     UK --> O
 ```
