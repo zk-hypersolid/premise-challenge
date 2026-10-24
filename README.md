@@ -146,6 +146,39 @@ The formula was never wrong; its condition was. Citing a correct formula is not 
 
 **Remove before you patch.** A sign-up flow creates a storage bucket, starts copying starter files into it, then turns on versioning. About 3% of buckets end up without versioning, and the team plans a nightly repair job. Digging shows that the provider refuses to turn on versioning once a bucket holds any file, and every failure in the logs is a bucket whose files arrived first. The bad state comes from the order of two steps. Turning on versioning first (about 80 ms) stops the state from happening. The buckets already affected still need a one-time move to new buckets with versioning on; no nightly job is needed. (The provider here is made up; real storage services differ.)
 
+## Example output
+
+A real run of the published skill (Claude Opus, Claude Code 2.1.287), lightly trimmed, on a made-up repository that matches the "remove before you patch" example above. In it, `design.md` records the current flow as decision D-0409 and the repair-job plan as P-12. Prompt: `/premise-challenge P-12 in design.md`.
+
+<details>
+<summary>Show the output</summary>
+
+**Problem:** about 3% of new workspaces end up "active, versioning off", and P-12 proposes a nightly repair job plus a "retry versioning" button to fix them.
+
+**Verdict:** change it. Turn versioning on *before* seeding starts, so the bad state never happens. Repair the workspaces that are already stuck once, with a one-time migration. Drop the retry button.
+
+#### Recommended solution
+1. Reorder the D-0409 flow to: create bucket → `PUT versioning` (wait for the 200) → start seeding.
+2. Run P-12's copy-to-new-bucket procedure **once** on the workspaces already stuck. It doesn't need to be a nightly job.
+3. Don't build the "retry versioning" button. Retrying never succeeds.
+4. Optional guard: if the versioning call doesn't return 200, alert and don't mark the workspace active.
+
+**What it stands on:** the 409 comes from calling versioning on a bucket that already has objects (probe plus September data). The 409 is permanent (probe C). The call takes p99 140 ms. Page-load p95 is 1.24 s.
+
+**Why it beats P-12:** the "active, versioning off" state stops being created. That removes a recurring cross-bucket copy, a delete of the old bucket and a useless admin button. Each of those is a moving part, and the copy and delete put data at risk.
+
+**Remaining risk:** waiting for the call delays the first page load by the call's latency, about 140 ms at p99. Worst case is about 1.38 s at p95, which stays under the 1.5 s target.
+
+**Reversibility and cheapest check:** this is a one-line ordering change and easy to revert. Ship it behind a flag, then watch the 409 rate (should go to 0) and first-page-load p95 for a week.
+
+*(premise tree, gaps and unknowns trimmed)*
+
+#### False premises
+1. **"Possibly a transient provider error"** (`design.md`, Known issue). The 409 is deterministic. It happens whenever the versioning call lands after seeding has written objects. It splits the September data perfectly and reproduces 20/20 in the sandbox. P-12's whole design (a recurring repair job and a retry button) rests on this premise.
+2. **That a retry can fix it** (implied by the "retry versioning" button). Run C showed 5/5 retries over 10 minutes still returned 409. The button would never succeed.
+
+</details>
+
 ## Safety boundaries
 
 - **No edits.** The skill instructs the agent never to edit documents, decisions or code; the recommended solution goes to the owner. This is an instruction, not a permission setting, so keep Claude Code's tool approvals on.
@@ -168,6 +201,7 @@ These are the author's informal local tests. The cases, transcripts and rubric a
 - Cases: a false premise about an external platform behind a product decision; a sound foundation that should be left alone; a formula whose conditions did not hold, plus contradicting data; a sound formula that should not be doubted; an industry practice whose conditions did not hold.
 - Previous, critique-first version, strongest models: passed every case but one. In that case it raised an edge-case concern about a sound claim, which the rubric counted as a miss.
 - Current, solution-first version, on two strong models, using the author's local Chinese draft of this version (not the files in this repository), graded the same way: on the five cases above, one run per case and model, it scored the same as the previous version (9/10 each, one edge-case miss each). Two new cases were added in which a planned fix handled a bad state that an ordering choice created; in one the request was to review the fix, in the other to make the fix faster. Over 2 cases × 2 models × 3 runs, both versions recommended changing the order every time (24 of 24 runs, 12 per version). So in short, single-task runs the new wording shows no gain; it is aimed at drift in long sessions, which these tests do not reproduce. The current version's output led with a recommended solution in 21 of its 22 runs (counted by a text search for that section) and was 5–20% longer than the previous version's. The stop rules were then reworded after an outside review (only check an unknown when being wrong costs more than checking; for a reversible decision, being wrong costs what it takes to change back). On a new case with a load-bearing unknown that was slow to check but cheap to undo, both wordings recommended going ahead with a canary rather than waiting, in 12 of 12 runs; three older cases still passed (6 of 6). So this change removes a contradiction in the text, but the tests did not show the old wording causing a problem.
+- The published text itself (English and Chinese files in this repository), on Opus and Fable, one run per case over the eight cases above: 29 of 32 passed. All three misses were on the sound-formula case: the rubric expects "holds", and the skill answered "a key unknown blocks the decision", arguing from the sample size that the data could not rule out the condition the formula needs. We count them as misses, though the argument has a real basis.
 - An earlier version vs. the plain prompt "challenge these premises", 8 runs each: found the false premise 7/8 vs 5/8; left the sound premise alone 7/8 vs 4/8. Neither difference is statistically significant at this sample size. Neither later version was compared with the plain prompt.
 - What we did not see: the layers did not make strong models dig deeper; they already do when asked. The skill is meant to add braking (fewer invented doubts), a recommendation built on verified premises, and a consistent output; the results above hint at the first but do not establish it. The safety boundary was not tested.
 - Smaller models invented doubts more often. Use a strong model.
