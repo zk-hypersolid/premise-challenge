@@ -1,14 +1,14 @@
 # Premise Challenge
 
-**Attack the premises behind a conclusion. Dig only along the ones that carry weight, verify each with first-hand evidence, and stop at solid ground. It is built to brake rather than invent doubt.**
+**Find what a conclusion really stands on, verify it with first-hand evidence, and build a better solution on verified ground, or confirm that the current one is right. It is built to dig only where it matters and to stop when more digging would not change the answer.**
 
 [中文版](README.zh-CN.md)
 
-An agent skill for Claude Code. You switch it on by hand with `/premise-challenge`. Give it a conclusion that has already been settled: a decision, a spec, a plan, or a *foundation* (the document that states what a product is and the rules it rests on). For each load-bearing premise it asks: *why does this hold, and what does it stand on?* It digs past platform facts into math, data, empirical laws, industry practice and common sense, verifies what it finds, and reports which layer is wrong. Anything it would change goes back to the *owner*, the person who made the decision.
+An agent skill for Claude Code. You switch it on by hand with `/premise-challenge`. Give it a problem, or a conclusion that has already been settled: a decision, a spec, a plan, or a *foundation* (the document that states what a product is and the rules it rests on). For each load-bearing premise it asks: *why does this hold, and what does it stand on?* It digs past platform facts into math, data, empirical laws, industry practice and common sense, verifies what it finds, and reports which layer is wrong. Then it rebuilds the solution from the verified premises only: a simpler one if the evidence allows, or the current one, confirmed. The recommendation goes back to the *owner*, the person who made the decision.
 
 ## The problem
 
-During execution, decisions and foundation documents must be treated as authority, or work never converges. The cost is that once a premise is written down, nobody checks it again. Premises are layered, and when a lower layer is wrong, everything above it is wrong in a complete and self-consistent way.
+During execution, decisions and foundation documents must be treated as authority, or work never converges. The cost is that once a premise is written down, nobody checks it again. Premises are layered, and when a lower layer is wrong, everything above it is wrong in a complete and self-consistent way. Optimizing on top of it only makes the wrong direction better.
 
 ```mermaid
 flowchart TB
@@ -29,6 +29,7 @@ flowchart TB
 | A conclusion rests on "everyone does it" | `/premise-challenge our "all writes go through a queue" rule` |
 | A vendor or a document says "impossible" or "required" | `/premise-challenge the vendor's claim that X is impossible` |
 | Before launch, on core claims or risk assumptions | `/premise-challenge the guarantees on the pricing page` |
+| A fix adds handling for a bad state | `/premise-challenge the repair-job plan` |
 | Something feels wrong but you cannot say what | `/premise-challenge <the conclusion>` and ask for the premise tree |
 
 Do not use it for everyday edits, copywriting or brainstorming (divergent work should not stop for premises), or to clarify what *you* want. It questions conclusions, not the person asking.
@@ -66,25 +67,24 @@ Then run `/premise-challenge <target>` in any session. The skill is user-invoked
 
 ```mermaid
 flowchart TB
-    T["1 Set the target"] --> P["2 Load-bearing premises<br/>label each node's layer"]
+    T["1 State the problem"] --> P["2 Load-bearing premises<br/>label each node's layer"]
     P --> V["3 Verify by layer"]
     V -- "cannot verify, or unsafe to test" --> UK["Mark unknown<br/>+ cheapest check"]
-    V --> B{"5 Brake?"}
+    V --> B{"Branch done?"}
     B -- "not yet a base" --> P
-    B -- "base reached · cost exceeds stakes ·<br/>only 'is the theorem true' left" --> UP["4 Check derivations upward<br/>hidden · expired · misapplied · rebuild"]
-    UP --> G{"Evidence that<br/>a premise is false?"}
-    G -- "yes" --> OV["Overturn proposal (max 3)"]
-    G -- "no" --> H["Holds, or gap"]
-    OV --> O["Output: verdict · premise tree ·<br/>proposals · gaps · unknowns"]
-    H --> O
+    B -- "base reached · cost exceeds stakes ·<br/>only 'is the theorem true' left" --> R["4 Rebuild the solution<br/>from verified nodes only<br/>remove a bad state before patching it"]
+    R --> S{"5 Would more digging<br/>change the recommendation?"}
+    S -- "yes" --> P
+    S -- "yes, but cannot be checked safely" --> O
+    S -- "no" --> O["Output: recommended solution ·<br/>premise tree · false premises ·<br/>gaps · unknowns"]
     UK --> O
 ```
 
-1. **Set the target.** One conclusion, and what it supports.
-2. **Dig along load-bearing premises only.** A premise is load-bearing if the conclusion changes when it is false. Label each node with a layer.
-3. **Verify by layer** (see below). First-hand material at hand comes first; second-hand claims are items to verify, not evidence. What cannot be verified, or cannot be tested safely, is marked unknown with the cheapest check.
-4. **Check each step upward.** Look for hidden premises, expired premises (with evidence of what changed), misapplied scope, and do a first-principles rebuild: can the conclusion be derived from verified nodes alone?
-5. **Brake** when a node is verified to base level, when checking costs more than being wrong, or when only "is this theorem true at all" remains. A premise is overturned only with evidence; a step that rests on convention is reported as a gap.
+1. **State the problem.** The problem to solve, the current conclusion or solution, and what it supports.
+2. **Dig along load-bearing premises only.** A premise is load-bearing if the conclusion or solution changes when it is false. Label each node with a layer.
+3. **Verify by layer** (see below). First-hand material at hand comes first; second-hand claims are items to verify, not evidence. An item a document already lists as "not investigated" gets its cheapest check first. What cannot be verified, or cannot be tested safely, is marked unknown with the cheapest check.
+4. **Rebuild the solution upward.** Look for hidden premises, expired premises (with evidence of what changed) and misapplied scope. Then derive the solution again from verified nodes only. When the evidence changed a lower layer, do not carry the old structure forward. When the solution adds handling for a bad state, first ask whether an ordering or structural choice creates that state, and prefer removing it.
+5. **Stop** a branch when a node is verified to base level, when checking costs more than being wrong, or when only "is this theorem true at all" remains. Stop the whole search when no remaining unknown could change the recommendation; if one could but cannot be checked safely, stop with the verdict "a key unknown blocks the decision". A premise is overturned only with evidence. If the current solution holds, the recommendation is to keep it.
 
 ## The layers: hardness, not depth
 
@@ -113,7 +113,7 @@ flowchart TB
 | **L3** Empirical laws | Economics, statistics, reliability engineering, behavior | State the conditions; check with data that they hold here. |
 | **L4** Industry practice · **L5** Common sense | What others do; what "everybody knows" | Not a base. State where it came from and when it holds; if load-bearing, dig down to L1–L3 or data. |
 
-Outside the layers: **internal choices** (the owner's decisions, your own code and config, which can change) and **inferences**. L4 and L5 alone can never overturn L1–L3, data or tests. Theorems, physical laws and legal texts are never questioned themselves, only whether they are cited and applied correctly.
+Outside the layers: **internal choices** (the owner's decisions, your own code, config and order of operations, which can change) and **inferences**. L4 and L5 alone can never overturn L1–L3, data or tests. Theorems, physical laws and legal texts are never questioned themselves, only whether they are cited and applied correctly.
 
 ## Worked example
 
@@ -135,7 +135,7 @@ flowchart TB
     A1 --> R["Rebuild from verified nodes:<br/>the shared cause alone gives 0.6 × 1% = 0.6% downtime<br/>availability ≈ 99.4%, far below 99.99%"]
     A2 --> R
     A3 --> R
-    R --> OUT["Overturn proposal to the owner:<br/>the SLA rests on an independence assumption<br/>that the incident data contradicts"]
+    R --> OUT["Recommendation to the owner:<br/>do not promise 99.99%; set the SLA with margin<br/>below the ≈ 99.4% the data supports,<br/>or remove the shared database first and measure again"]
     style A1 fill:#fff4e0,stroke:#e0a020
     style A2 fill:#fde2e2,stroke:#d33
     style A4 fill:#fff4e0,stroke:#e0a020
@@ -144,15 +144,17 @@ flowchart TB
 
 The formula was never wrong; its condition was. Citing a correct formula is not verifying it. The same method handles industry practice. "All writes go through a message queue, because decoupling with a queue is best practice" digs down to the conditions a queue needs to pay off: high or bursty write volume, or several independent consumers. If the data shows about 40 writes a day and one consumer, the queue adds a moving part, another failure point and extra latency, and the practice does not apply here.
 
+**Remove before you patch.** A sign-up flow creates a storage bucket, starts copying starter files into it, then turns on versioning. About 3% of buckets end up without versioning, and the team plans a nightly repair job. Digging shows that the provider refuses to turn on versioning once a bucket holds any file, and every failure in the logs is a bucket whose files arrived first. The bad state comes from the order of two steps. Turning on versioning first (about 80 ms) stops the state from happening. The buckets already affected still need a one-time move to new buckets with versioning on; no nightly job is needed. (The provider here is made up; real storage services differ.)
+
 ## Safety boundaries
 
-- **No edits.** The skill instructs the agent never to edit documents, decisions or code; overturns go to the owner as proposals. This is an instruction, not a permission setting, so keep Claude Code's tool approvals on.
+- **No edits.** The skill instructs the agent never to edit documents, decisions or code; the recommended solution goes to the owner. This is an instruction, not a permission setting, so keep Claude Code's tool approvals on.
 - **Safe testing only.** Tests use read-only actions or test environments (sandboxes, staging, local fixtures). Anything that writes to production systems or data, moves real money, uses production credentials or secrets, deploys, or sends messages to real people is not run; it is marked *unknown* and handed back. Existing repository scripts are run only after the agent reads them and confirms they do none of these.
 - **Brakes against invented doubt.** Overturning needs evidence: a derivation, a first-hand source, a test or data. "It may have changed" or "the doc is old" is not evidence.
 
 ## What's included
 
-- [SKILL.md](SKILL.md): the method, layers, brakes and output format.
+- [SKILL.md](SKILL.md): the method, layers, stop rules and output format.
 - [cold-start.md](cold-start.md): how to get an unanchored version before comparing.
 - [scripts/make-clean-room.sh](scripts/make-clean-room.sh): exports a git ref and removes the listed agent instruction files, docs, design notes and decision records.
 - [agents/cold-designer.md](agents/cold-designer.md): a subagent that designs from a brief without loading CLAUDE.md files.
@@ -164,9 +166,10 @@ These are the author's informal local tests. The cases, transcripts and rubric a
 
 - Setup: isolated runs with no other instruction files, on four models; a separate model graded each run against a fixed rubric without knowing which condition produced it.
 - Cases: a false premise about an external platform behind a product decision; a sound foundation that should be left alone; a formula whose conditions did not hold, plus contradicting data; a sound formula that should not be doubted; an industry practice whose conditions did not hold.
-- Current version, strongest models: passed every case but one. In that case it raised an edge-case concern about a sound claim, which the rubric counted as a miss.
-- An earlier version vs. the plain prompt "challenge these premises", 8 runs each: found the false premise 7/8 vs 5/8; left the sound premise alone 7/8 vs 4/8. Neither difference is statistically significant at this sample size. The current version was not compared with the plain prompt.
-- What we did not see: the layers did not make strong models dig deeper; they already do when asked. The skill is meant to add braking (fewer invented doubts) and a consistent output; the results above hint at the first but do not establish it. The safety boundary was not tested.
+- Previous, critique-first version, strongest models: passed every case but one. In that case it raised an edge-case concern about a sound claim, which the rubric counted as a miss.
+- Current, solution-first version, on two strong models, using the author's local Chinese draft of this version (not the files in this repository), graded the same way: on the five cases above, one run per case and model, it scored the same as the previous version (9/10 each, one edge-case miss each). Two new cases were added in which a planned fix handled a bad state that an ordering choice created; in one the request was to review the fix, in the other to make the fix faster. Over 2 cases × 2 models × 3 runs, both versions recommended changing the order every time (24 of 24 runs, 12 per version). So in short, single-task runs the new wording shows no gain; it is aimed at drift in long sessions, which these tests do not reproduce. The current version's output led with a recommended solution in 21 of its 22 runs (counted by a text search for that section) and was 5–20% longer than the previous version's. The final wording of the stop rules was tightened after these runs and was spot-checked only.
+- An earlier version vs. the plain prompt "challenge these premises", 8 runs each: found the false premise 7/8 vs 5/8; left the sound premise alone 7/8 vs 4/8. Neither difference is statistically significant at this sample size. Neither later version was compared with the plain prompt.
+- What we did not see: the layers did not make strong models dig deeper; they already do when asked. The skill is meant to add braking (fewer invented doubts), a recommendation built on verified premises, and a consistent output; the results above hint at the first but do not establish it. The safety boundary was not tested.
 - Smaller models invented doubts more often. Use a strong model.
 - The cold-designer subagent was checked once with a canary on Claude Code 2.1.287: a project CLAUDE.md told every reply to start with a marker word, and the subagent's reply did not contain it. Only CLAUDE.md was checked; other context such as MCP server instructions or hook output was not. Check again on your version.
 
