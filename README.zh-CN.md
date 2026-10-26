@@ -4,7 +4,7 @@
 
 [English](README.md)
 
-一个 Claude Code 技能，用 `/premise-challenge` 手动开启。给它一个问题，或者一个已经定下来的结论：一个决策、一份规格、一个方案，或者一份 *foundation*（写明一个产品是什么、建立在哪些规则之上的基础文档）。它对每条承重前提追问：*它凭什么成立？它又站在什么上？* 它会越过平台事实继续往下挖，挖到数学、数据、经验规律、行业实践和常识，逐层核实，告诉你错在哪一层。然后只用核实过的前提重新推出方案：证据允许就给更简单的方案，否则确认现方案。推荐交回给*决策负责人*，也就是当初做这个决定的人。
+一个 Claude Code 和 Codex 都能用的技能，手动开启（Claude Code 里输入 `/premise-challenge`，Codex 里输入 `$premise-challenge`）。给它一个问题，或者一个已经定下来的结论：一个决策、一份规格、一个方案，或者一份 *foundation*（写明一个产品是什么、建立在哪些规则之上的基础文档）。它对每条承重前提追问：*它凭什么成立？它又站在什么上？* 它会越过平台事实继续往下挖，挖到数学、数据、经验规律、行业实践和常识，逐层核实，告诉你错在哪一层。然后只用核实过的前提重新推出方案：证据允许就给更简单的方案，否则确认现方案。推荐交回给*决策负责人*，也就是当初做这个决定的人。
 
 ## 解决什么问题
 
@@ -36,32 +36,42 @@ flowchart TB
 
 ## 安装
 
-克隆到 Claude Code 的技能目录：
+它用的是开放的 [Agent Skills](https://agentskills.io) 格式，**Claude Code** 和 **Codex** 都能用。只能手动调用，不会自己启动。
+
+**Claude Code**
 
 ```sh
 git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.claude/skills/premise-challenge
 ```
 
-以后用 `git -C ~/.claude/skills/premise-challenge pull` 更新。如果已经有一个叫 `premise-challenge` 的技能，先把它移走。只想给某个项目用，就把文件复制到那个项目的 `.claude/skills/premise-challenge`（或者在那里把本仓库加成 git submodule）。
+输入 `/premise-challenge <靶子>`。只想给某个项目用，就把文件复制到那个项目的 `.claude/skills/premise-challenge`。
 
-**中文版**：留一份源码副本，从里面装中文文件：
-
-```sh
-git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
-mkdir -p ~/.claude/skills/premise-challenge
-cp ~/src/premise-challenge/zh-CN/*.md ~/.claude/skills/premise-challenge/
-cp -R ~/src/premise-challenge/scripts ~/src/premise-challenge/agents ~/.claude/skills/premise-challenge/
-```
-
-更新时，先在 `~/src/premise-challenge` 里 pull，再把上面的复制命令跑一遍。
-
-**冷启动步骤要用**：安装附带的 subagent，它被设置为不加载 CLAUDE.md 文件（`omitClaudeMd: true`）：
+冷启动步骤还要装附带的 subagent，它被设置为不加载 CLAUDE.md 文件（`omitClaudeMd: true`）：
 
 ```sh
 cp ~/.claude/skills/premise-challenge/agents/cold-designer.md ~/.claude/agents/
 ```
 
-之后在任意会话里输入 `/premise-challenge <靶子>` 即可。这个技能只能由用户手动调用（`disable-model-invocation: true`），不会自己启动。其他支持技能的 agent 也可以加载 `SKILL.md`；"只能由用户调用"和 subagent 是 Claude Code 的功能。
+**Codex**
+
+```sh
+git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.agents/skills/premise-challenge
+```
+
+输入 `$premise-challenge <靶子>`，或者在 `/skills` 里选。只想给某个项目用，就放到那个仓库的 `.agents/skills/premise-challenge`。冷启动用的 subagent 是 Claude Code 的功能；在 Codex 里，`cold-start.md` 要求 agent 直接说明这一步用不了，不拿别的东西顶替。
+
+**中文版**：留一份源码副本，从里面装中文文件。把 `<技能目录>` 换成 `~/.claude/skills`（Claude Code）或 `~/.agents/skills`（Codex）：
+
+```sh
+git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
+mkdir -p <技能目录>/premise-challenge
+cp ~/src/premise-challenge/zh-CN/*.md <技能目录>/premise-challenge/
+cp -R ~/src/premise-challenge/scripts ~/src/premise-challenge/agents <技能目录>/premise-challenge/
+```
+
+**更新**：运行 `git -C <技能目录>/premise-challenge pull`。中文版先在 `~/src/premise-challenge` 里 pull，再把上面的复制命令跑一遍。如果已经有一个叫 `premise-challenge` 的技能，先把它移走。
+
+**"只能手动调用"是怎么实现的**：Claude Code 读 `SKILL.md` 里的 `disable-model-invocation: true`；Codex 读 `agents/openai.yaml` 里的 `allow_implicit_invocation: false`。其他支持 Agent Skills 的工具也能加载 `SKILL.md`，但如果它们没有类似的设置，可能会自己启动这个技能；这些工具没有测过。
 
 ## 它怎么工作
 
@@ -176,7 +186,7 @@ flowchart TB
 
 ## 安全边界
 
-- **不改东西**：技能要求 agent 不改任何文档、决策或代码，推荐方案交给决策负责人。这是一条指令，不是权限设置，所以请保持 Claude Code 的工具审批开着。
+- **不改东西**：技能要求 agent 不改任何文档、决策或代码，推荐方案交给决策负责人。这是一条指令，不是权限设置，所以请保持你所用 agent 的工具审批开着。
 - **只做安全的实测**：只用只读操作，或者在测试环境里做（沙箱、预发环境、本地样例数据）。会写生产系统或生产数据、动真实资金、用生产凭证或密钥、做部署、给真实用户发消息的，一律不跑，标为*未知*交还给你。仓库里已有的脚本，agent 要先读过、确认不做这些事才会跑。
 - **防止硬造疑点**：推翻必须带证据，即推导、一手来源、实测或数据。"可能已经改了""文档很旧了"都不算证据。
 
@@ -185,7 +195,8 @@ flowchart TB
 - [SKILL.md](SKILL.md)：方法、层级、收口规则和产出格式。
 - [cold-start.md](cold-start.md)：怎么先得到一版不受锚定的方案，再做对比。
 - [scripts/make-clean-room.sh](scripts/make-clean-room.sh)：导出一个 git ref，并删掉清单里列出的 agent 指令文件、文档、设计说明和决策记录。
-- [agents/cold-designer.md](agents/cold-designer.md)：只根据 brief 做设计、不加载 CLAUDE.md 文件的 subagent。
+- [agents/cold-designer.md](agents/cold-designer.md)：Claude Code 用的 subagent，只根据 brief 做设计、不加载 CLAUDE.md 文件。
+- [agents/openai.yaml](agents/openai.yaml)：Codex 的设置，让 Codex 不会自己启动这个技能。
 - [zh-CN/](zh-CN/)：SKILL.md 和 cold-start.md 的中文版。
 
 ## 怎么测的（非正式）
@@ -200,6 +211,7 @@ flowchart TB
 - 早一版与"不装技能、只说'挑战一下这些前提'"相比，各跑 8 次：找出错误前提 7/8 对 5/8；放过本来成立的前提 7/8 对 4/8。这个样本量下两项差距都不显著。之后的两版都没有和这个基线比较过。
 - 没有看到的效果：分层没有让强模型挖得更深，它们被要求挑战前提时本来就会挖。这个技能想补的是刹车（少硬造疑点）、建立在核实过的前提上的推荐方案，以及稳定的产出格式；上面的结果对前者只是有迹象，不能算证实。安全边界没有测过。
 - 小模型更常硬造疑点。这个技能请用强模型。
+- Codex CLI 0.162.1，技能装在用户技能目录里，任务内容和技能描述吻合、但没有点名：没有 `agents/openai.yaml` 时，Codex 2 次里 2 次自己启动了技能；有它时 2 次里 0 次。用 `$premise-challenge` 点名调用时，它加载了技能、按技能的产出格式回答，没有改任何文件。
 - cold-designer 这个 subagent 在 Claude Code 2.1.287 上做过一次金丝雀检查：项目的 CLAUDE.md 要求每次回答都以一个标记词开头，subagent 的回答里没有这个标记词。只检查了 CLAUDE.md，MCP 服务器说明、hook 输出等其他上下文没有检查。在你的版本上请再检查一次。
 
 ## 许可证

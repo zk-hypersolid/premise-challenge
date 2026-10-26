@@ -1,6 +1,6 @@
 ---
 name: premise-challenge
-description: Challenge mode. Start from a problem or a settled conclusion (a decision, a product foundation, a spec, a plan), dig down to the premises it stands on (math, hard constraints, data, empirical laws, industry practice, common sense), verify them with evidence, then build a better solution on the verified premises, or confirm that the current one is right. Use only when the user invokes /premise-challenge.
+description: Challenge mode. Start from a problem or a settled conclusion (a decision, a product foundation, a spec, a plan), dig down to the premises it stands on (math, hard constraints, data, empirical laws, industry practice, common sense), verify them with evidence, then build a better solution on the verified premises, or confirm that the current one is right. Use only when the user invokes it explicitly (/premise-challenge in Claude Code, $premise-challenge in Codex).
 disable-model-invocation: true
 ---
 

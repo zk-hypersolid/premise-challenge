@@ -1,0 +1,5 @@
+interface:
+  display_name: "Premise Challenge"
+  short_description: "Check what a conclusion stands on, then build a better solution on verified ground"
+policy:
+  allow_implicit_invocation: false

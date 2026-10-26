@@ -1,6 +1,6 @@
 ---
 name: premise-challenge
-description: 挑战模式：从一个问题或已定的结论（决策、产品 foundation、规格、方案）出发，往下挖它站在什么前提上（数学、硬约束、数据、经验规律、行业实践、常识），用证据核实，再在核实过的前提上给出更好的方案，或确认现方案就是对的。只在用户用 /premise-challenge 调用时使用。
+description: 挑战模式：从一个问题或已定的结论（决策、产品 foundation、规格、方案）出发，往下挖它站在什么前提上（数学、硬约束、数据、经验规律、行业实践、常识），用证据核实，再在核实过的前提上给出更好的方案，或确认现方案就是对的。只在用户明确调用时使用（Claude Code 里是 /premise-challenge，Codex 里是 $premise-challenge）。
 disable-model-invocation: true
 ---
 

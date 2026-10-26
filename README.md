@@ -4,7 +4,7 @@
 
 [中文版](README.zh-CN.md)
 
-An agent skill for Claude Code. You switch it on by hand with `/premise-challenge`. Give it a problem, or a conclusion that has already been settled: a decision, a spec, a plan, or a *foundation* (the document that states what a product is and the rules it rests on). For each load-bearing premise it asks: *why does this hold, and what does it stand on?* It digs past platform facts into math, data, empirical laws, industry practice and common sense, verifies what it finds, and reports which layer is wrong. Then it rebuilds the solution from the verified premises only: a simpler one if the evidence allows, or the current one, confirmed. The recommendation goes back to the *owner*, the person who made the decision.
+An agent skill for Claude Code and Codex. You switch it on by hand (`/premise-challenge` in Claude Code, `$premise-challenge` in Codex). Give it a problem, or a conclusion that has already been settled: a decision, a spec, a plan, or a *foundation* (the document that states what a product is and the rules it rests on). For each load-bearing premise it asks: *why does this hold, and what does it stand on?* It digs past platform facts into math, data, empirical laws, industry practice and common sense, verifies what it finds, and reports which layer is wrong. Then it rebuilds the solution from the verified premises only: a simpler one if the evidence allows, or the current one, confirmed. The recommendation goes back to the *owner*, the person who made the decision.
 
 ## The problem
 
@@ -36,32 +36,42 @@ Do not use it for everyday edits, copywriting or brainstorming (divergent work s
 
 ## Install
 
-Clone into your Claude Code skills directory:
+It uses the open [Agent Skills](https://agentskills.io) format and works in **Claude Code** and **Codex**. It is invoked by hand only and never starts on its own.
+
+**Claude Code**
 
 ```sh
 git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.claude/skills/premise-challenge
 ```
 
-Update later with `git -C ~/.claude/skills/premise-challenge pull`. If you already have a skill named `premise-challenge`, move it away first. To install for one project only, copy the files into that project's `.claude/skills/premise-challenge` (or add the repository as a git submodule there).
+Run `/premise-challenge <target>`. For one project only, copy the files into that project's `.claude/skills/premise-challenge` instead.
 
-**Chinese version.** Keep a source copy and install the Chinese files from it:
-
-```sh
-git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
-mkdir -p ~/.claude/skills/premise-challenge
-cp ~/src/premise-challenge/zh-CN/*.md ~/.claude/skills/premise-challenge/
-cp -R ~/src/premise-challenge/scripts ~/src/premise-challenge/agents ~/.claude/skills/premise-challenge/
-```
-
-To update, pull `~/src/premise-challenge` and run the copy commands again.
-
-**For the cold-start step**, install the bundled subagent, which is set to skip CLAUDE.md files (`omitClaudeMd: true`):
+For the cold-start step, also install the bundled subagent, which is set to skip CLAUDE.md files (`omitClaudeMd: true`):
 
 ```sh
 cp ~/.claude/skills/premise-challenge/agents/cold-designer.md ~/.claude/agents/
 ```
 
-Then run `/premise-challenge <target>` in any session. The skill is user-invoked only (`disable-model-invocation: true`), so it never starts on its own. Other skill-compatible agents can load `SKILL.md`; the user-invoked flag and the subagent are Claude Code features.
+**Codex**
+
+```sh
+git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.agents/skills/premise-challenge
+```
+
+Run `$premise-challenge <target>`, or pick it from `/skills`. For one project only, put it in that repository's `.agents/skills/premise-challenge`. The cold-start subagent is a Claude Code feature; in Codex, `cold-start.md` tells the agent to say so instead of running that step with a substitute.
+
+**Chinese version.** Keep a source copy and install the Chinese files from it. Replace `<skills-dir>` with `~/.claude/skills` (Claude Code) or `~/.agents/skills` (Codex):
+
+```sh
+git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
+mkdir -p <skills-dir>/premise-challenge
+cp ~/src/premise-challenge/zh-CN/*.md <skills-dir>/premise-challenge/
+cp -R ~/src/premise-challenge/scripts ~/src/premise-challenge/agents <skills-dir>/premise-challenge/
+```
+
+**Updating.** Run `git -C <skills-dir>/premise-challenge pull`. For the Chinese version, pull `~/src/premise-challenge` and run the copy commands again. If you already have a skill named `premise-challenge`, move it away first.
+
+**How "manual only" works.** Claude Code reads `disable-model-invocation: true` in `SKILL.md`; Codex reads `allow_implicit_invocation: false` in `agents/openai.yaml`. Other tools that support Agent Skills can load `SKILL.md` too, but may start it on their own unless they offer a similar setting; those tools have not been tested.
 
 ## How it works
 
@@ -181,7 +191,7 @@ A real run of the published skill (Claude Opus, Claude Code 2.1.287), lightly tr
 
 ## Safety boundaries
 
-- **No edits.** The skill instructs the agent never to edit documents, decisions or code; the recommended solution goes to the owner. This is an instruction, not a permission setting, so keep Claude Code's tool approvals on.
+- **No edits.** The skill instructs the agent never to edit documents, decisions or code; the recommended solution goes to the owner. This is an instruction, not a permission setting, so keep your agent's tool approvals on.
 - **Safe testing only.** Tests use read-only actions or test environments (sandboxes, staging, local fixtures). Anything that writes to production systems or data, moves real money, uses production credentials or secrets, deploys, or sends messages to real people is not run; it is marked *unknown* and handed back. Existing repository scripts are run only after the agent reads them and confirms they do none of these.
 - **Brakes against invented doubt.** Overturning needs evidence: a derivation, a first-hand source, a test or data. "It may have changed" or "the doc is old" is not evidence.
 
@@ -190,7 +200,8 @@ A real run of the published skill (Claude Opus, Claude Code 2.1.287), lightly tr
 - [SKILL.md](SKILL.md): the method, layers, stop rules and output format.
 - [cold-start.md](cold-start.md): how to get an unanchored version before comparing.
 - [scripts/make-clean-room.sh](scripts/make-clean-room.sh): exports a git ref and removes the listed agent instruction files, docs, design notes and decision records.
-- [agents/cold-designer.md](agents/cold-designer.md): a subagent that designs from a brief without loading CLAUDE.md files.
+- [agents/cold-designer.md](agents/cold-designer.md): a Claude Code subagent that designs from a brief without loading CLAUDE.md files.
+- [agents/openai.yaml](agents/openai.yaml): Codex settings; keeps Codex from starting the skill on its own.
 - [zh-CN/](zh-CN/): Chinese versions of SKILL.md and cold-start.md.
 
 ## How it was tested (informal)
@@ -205,6 +216,7 @@ These are the author's informal local tests. The cases, transcripts and rubric a
 - An earlier version vs. the plain prompt "challenge these premises", 8 runs each: found the false premise 7/8 vs 5/8; left the sound premise alone 7/8 vs 4/8. Neither difference is statistically significant at this sample size. Neither later version was compared with the plain prompt.
 - What we did not see: the layers did not make strong models dig deeper; they already do when asked. The skill is meant to add braking (fewer invented doubts), a recommendation built on verified premises, and a consistent output; the results above hint at the first but do not establish it. The safety boundary was not tested.
 - Smaller models invented doubts more often. Use a strong model.
+- Codex CLI 0.162.1, skill installed in the user skills folder, one task that matches the skill's description without naming it: Codex started the skill on its own in 2 of 2 runs without `agents/openai.yaml` and in 0 of 2 runs with it. Called by name with `$premise-challenge`, it loaded the skill, followed its output format and changed no files.
 - The cold-designer subagent was checked once with a canary on Claude Code 2.1.287: a project CLAUDE.md told every reply to start with a marker word, and the subagent's reply did not contain it. Only CLAUDE.md was checked; other context such as MCP server instructions or hook output was not. Check again on your version.
 
 ## License
