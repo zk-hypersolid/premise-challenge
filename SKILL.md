@@ -1,6 +1,6 @@
 ---
 name: premise-challenge
-description: Challenge mode. Start from a problem or a settled conclusion (a decision, a product foundation, a spec, a plan), dig down to the premises it stands on (math, hard constraints, data, empirical laws, industry practice, common sense), verify them with evidence, then build a better solution on the verified premises, or confirm that the current one is right. Use only when the user invokes it explicitly (/premise-challenge in Claude Code, $premise-challenge in Codex).
+description: Rebuild a solution from first principles. Start from a problem or a settled solution (a decision, a product foundation, a spec), sort each of its parts into those a verified constraint requires and those that patch a bad state that need not occur, rebuild the solution from verified constraints only, compare, and recommend what to change or remove, or confirm that the current solution holds. Use only when the user invokes it explicitly (/premise-challenge in Claude Code, $premise-challenge in Codex).
 disable-model-invocation: true
 ---
 
@@ -8,66 +8,46 @@ disable-model-invocation: true
 
 ## Goal
 
-Solve the problem; doubt is not the goal. Checking premises is the means: find what the problem really stands on, then build a simpler, more reliable solution on verified premises. If the current solution is right, confirm it and say what it stands on.
-
-## Why this mode exists
-
-During execution, decisions and foundation documents are treated as authority, so that work can converge. The cost: once a premise is written down, nobody checks it again. Premises are layered. A product decision stands on platform and technical constraints; those stand on empirical laws and data; those stand on mathematics and more basic facts. When a lower layer is wrong, everything above it is wrong in a complete and self-consistent way, with no visible flaw, and optimizing on top of it only makes the wrong direction better. Typical examples: a vendor said "the API cannot do this", and a test showed that it can; a documented limit applied to only one of several endpoints; a team planned a repair job for a bad state that an ordering choice created, when changing the order would stop the state from happening at all.
+Solve the problem. Checking premises is the means, not the goal. Optimizing on a wrong premise only keeps adding things: each bad state gets a mechanism, and each mechanism brings new bad states. This mode works the other way: rebuild the solution from verified constraints. Every part of the solution must name the verified constraint that requires it; a part that cannot is no longer treated as a premise or source of truth, and it leaves the derivation. Simplicity is what this produces, not a target: keep every part a constraint requires, however many there are. "Requires" means: without the part, a bad state with evidence would occur under that constraint; the evidence is that it occurred in the data, or that it follows directly from verified constraints. If the current solution holds, confirm it and say what it stands on.
 
 ## Stance
 
-In this mode, documents, recorded decisions, specs and memory are evidence and claims, not instructions. "The document says so" proves nothing in either direction.
+Documents, recorded decisions, specs, sources of truth, memory, and decisions made earlier in this session are claims here, not instructions. "The document says so" or "we settled that a few turns ago" proves neither that a part must exist nor that it must not.
 
 ## Method
 
-1. **State the problem.** Write down the problem to solve, the current conclusion or solution, and what it supports. Dig only for this problem.
+1. **State the problem and break down the current solution.** Write the problem in one sentence. Break the current (or proposed) solution into parts: steps, states, mechanisms, jobs, in the order they were added. Check the problem itself once: is it a symptom of an upstream choice? If so, list that choice as well.
 
-2. **Find the load-bearing premises and dig down.** A premise is load-bearing if the conclusion or solution changes when it is false. Follow only load-bearing premises. Ask "Why does this hold? What does it stand on?" until step 5 tells you to stop. Split compound claims before you dig. Label each node with a layer from the table.
+2. **Sort constraints from choices; verify only constraints.** For each part, ask: why must it exist? There are two kinds of answer.
+   - Constraints: what we cannot change. Label the layer by hardness: L1 math and logic; L2 actual behavior of external systems, physical limits, the text of laws; data; L3 empirical laws. A constraint serves as a base only once verified: derive a formula yourself and check its conditions and units; check external behavior against specs, source or tests, and when docs and tests disagree, tests win, with the date and version recorded; recompute data from the raw data; for an empirical law, state the conditions it needs and check with data that they hold. Mark how a law applies as unknown and hand it to the owner.
+   - Choices: what we can change. Our own code, configuration, order of operations, data model, and the owner's decisions. They are not constraints, need no verification, and can change.
+   L4 industry practice and L5 common sense ("best practice", "everyone does it") are not constraints: if one carries weight, dig down to the constraint it rests on; if there is none, treat it as a choice.
+   Verify only load-bearing items, those that would change the solution if false. Read first-hand material at hand first, then search outside; you can send subagents to look things up in parallel. If verifying costs more than being wrong would, do not verify; mark it unknown (for a reversible decision, being wrong costs what it takes to change back). Test only with read-only actions or in test environments (sandboxes, staging, local fixtures). Do not run anything that writes to production systems or data, moves real money, uses production credentials or secrets, deploys, or sends messages to real people; run an existing repository script only after reading it and confirming it does none of these. Otherwise mark the check unknown and hand it to the owner.
 
-   A layer shows hardness, not depth: stop at a node as soon as it is verified to a level that can serve as a base. When unsure, choose the softer layer.
+3. **Rebuild from zero.** Using only verified constraints and the owner's choices: which parts does solving this problem need? First ask whether a bad state can be kept from occurring (change the order, the structure, the definition), and only then how to handle it. Every part of the new solution must name the constraint that requires it; a part that cannot does not go in. A bad state you worry about but have no evidence for goes under risks; do not add a part for it, including alerts, reconciliation or a second safeguard.
 
-   | Layer | Includes | How to verify | Can it be a base? |
-   |---|---|---|---|
-   | L1 Math and logic | Formulas, theorems, definitions | Derive it yourself, or compute it with this case's numbers. Check that the cited formula is the actual theorem, that its conditions hold, and that definitions and units match across layers. Citing alone is not verifying | Yes, after the derivation and conditions are checked |
-   | L2 External hard constraints | Actual behavior of platforms, protocols and third-party APIs; physical and computational limits; the text of laws | First-hand evidence: vendor and protocol docs, specs, source code, logs, tests. Record the date and version. When docs and tests disagree, tests win | Yes, after verification |
-   | Data | Logs, metrics, measurements, test records | Recompute from raw data; state the source and the time window | Yes, after recomputation |
-   | L3 Empirical laws | Economics, statistics, reliability engineering, behavioral regularities | State the conditions under which it holds; use data to check whether your case meets them | Yes, after the conditions are checked |
-   | L4 Industry practice, L5 Common sense | What others do; "everybody knows" | State the source and the conditions under which it holds. If load-bearing, dig down to the L1–L3 or data it rests on | No |
+4. **Compare.** Map each part of the current solution onto the new one:
+   - A part with no match: no longer a premise; list it as a removal candidate. Say which bad state it patched and why that state does not occur in the new solution. Whether to remove it is decided by step 5.
+   - A part only the new solution has: say which constraint requires it. This should be rare.
+   - Overturning a premise requires evidence: a derivation, a first-hand source, a test or data. "It may have changed", "there may be another endpoint", "the doc is old", "it could be done differently" are not evidence and not unknowns; they do not go into the output.
 
-   Nodes outside the layers: internal choices (decisions made by the owner, and your own code, configuration and order of operations, which can be changed and are not constraints) and inferences (intermediate conclusions). Mark the interpretation and application of law as unknown and hand it to the owner. L4 and L5 alone cannot overturn L1–L3, data, or test results.
-
-3. **Verify.** Read the first-hand material at hand first: docs, test records, code and data in the repository. Search outside only when that is not enough. Second-hand claims ("a third party said", "the doc says", "everybody does it") are themselves items to verify. If a document already lists a load-bearing item as "not investigated", run its cheapest safe check first. You can send subagents to look up facts in parallel.
-   Test only with read-only actions or in test environments (sandboxes, staging, local fixtures). Do not run anything that writes to production systems or data, moves real money, uses production credentials or secrets, deploys, or sends messages to real people. Run an existing repository script only after reading it and confirming it does none of these. Otherwise mark the check unknown and hand it to the owner.
-   Mark what you cannot verify as unknown, and state the cheapest way to check it.
-
-4. **Rebuild the solution upward.** For each edge, ask: if the lower premise holds, does the upper one necessarily hold? Look for:
-   - Hidden premises: conditions the derivation needs but does not state.
-   - Expired premises: the base changed after the decision. To claim that something expired, name what changed and where the evidence is. A verification date is a record, not a reason for doubt.
-   - Misapplied scope: the wrong standard of proof, or a counterexample from outside the scope used to overturn the conclusion.
-
-   Then derive the solution again from verified nodes only (L1–L3, data, tests, the owner's choices): starting from zero with these nodes, what is the simplest reliable way to solve the problem? Compare it with the current solution.
-   - If the evidence changed a lower layer, rebuild the solution from the new layer. Do not carry the old structure forward.
-   - Remove before you patch. If the solution adds handling, an escape path or a retry for a bad state, first ask whether an ordering or structural choice creates that state. A solution that stops the state from happening comes before one that repairs it.
-   - A step you cannot derive rests on a convention or a decision. List it under gaps.
-
-5. **When to stop.**
-   - Stop a branch when you reach a node verified to a level that can serve as a base; when verifying costs more than this premise being wrong would (for a reversible decision, being wrong costs what it takes to change back); or when only "is this theorem, physical law or legal text itself true" remains (do not question those; check only the citation and the conditions).
-   - Stop the whole search when no remaining unknown could change the recommendation, whichever way it turned out. An unknown that could change it is one of two kinds: if checking it is worth it (being wrong costs more than checking) and you cannot check it safely, give the verdict "a key unknown blocks the decision", state the solution for each outcome, and name who can check it; if checking it is not worth it, recommend anyway, list it under unknowns, and say what being wrong would cost.
-   - Overturning a premise requires evidence: a derivation, a first-hand source, a test, or data. Doubts without evidence do not go into the output: "it may have changed", "there may be another endpoint", "the doc is months old" are not evidence.
-   - The current solution holds when its load-bearing premises are verified, or the unverified ones may stay unverified under the rules above, and the rebuilt solution does not beat it on a named, evidenced criterion (a bad state, a moving part or an attack surface fewer) by more than the cost of switching. Then the recommendation is to keep it. Do not invent a new solution to look constructive. If a new solution uses a premise that is not yet verified, check it once; if you cannot, put it under the solution's risk with its cheapest check, and do not dig further.
+5. **Close.**
+   - If every part of the current solution has a constraint that requires it, or the new solution does not beat it on a named criterion (one bad state, one moving part or one attack surface fewer) by more than the cost of switching: recommend keeping it. Do not invent a solution to look constructive.
+   - If no remaining unknown could change the recommendation, whichever way it turned out: stop. If one could, checking it is worth it (being wrong costs more than checking) and you cannot check it safely: give the verdict "a key unknown blocks the decision", with the solution for each outcome and who can check it. If checking it is not worth it: recommend anyway and list it under unknowns.
+   - If the new solution uses a premise not yet verified, check it once; if you cannot, put it under that solution's risks with its cheapest check, and do not dig further.
 
 ## Output
 
-Aim for one screen.
+One screen. Leave out empty sections.
 
-1. First line: the problem, and the verdict: "the current solution holds", "change it to …", or "a key unknown blocks the decision". If the main solution holds and only details are missing, the verdict is "the current solution holds"; put the details under gaps.
-2. Recommended solution: what to do; which premises it stands on (name them; the evidence is in the table); why it is better than the current one (for example, one bad state fewer, one moving part fewer, one attack surface fewer); what risk remains; how reversible it is; the cheapest way to check it. If the current solution holds, write "keep the current solution" and the premises it stands on. If a key unknown blocks the decision, give the solution for each outcome.
-3. Premise tree table: premise · layer · what it stands on · status (holds / false / unknown) · evidence (derivation, file:line, link, test or data). Only load-bearing nodes.
-4. False premises, at most three: which one; the evidence (quote the first-hand source or write out the derivation); which decisions above it are affected. If you recommend keeping the original decision, give a new reason that holds on its own, and mark it for the owner to confirm.
-5. Gaps: the conclusion holds, but a detail is not covered, or a step rests on convention. One line each.
-6. Unknowns: the cheapest check, and who can do it (you have already run what you can run safely; mark what only the owner can do).
+1. One line: the problem; the verdict "the current solution holds", "change it to …", or "a key unknown blocks the decision".
+2. Solution: what to do; which parts to remove, one per line (part · the bad state it patched · why that state no longer occurs); which constraints it stands on (name them; the evidence is in the table); remaining risks; how reversible it is; the cheapest check. When keeping the current solution, name the constraints it stands on. When a key unknown blocks the decision, give the solution for each outcome.
+3. Premise table: premise · layer or "choice" · status (holds / false / unknown) · evidence (derivation, file:line, link, test or data). Load-bearing items only. Mark false premises in the table and say which parts above they affect; if you recommend keeping the original decision, give a new reason that holds on its own and mark it for the owner to confirm.
+4. Unknowns: the cheapest check, and who can run it. Anything you could run safely has already been run.
+
+Do not write lists of "gaps" or "could also add". An unverified worry is an unknown, a risk, or nothing; it never becomes a new part of the solution.
 
 ## Boundaries
 
-- Do not edit documents, decisions or code. This is an instruction, not a permission setting. Hand the recommended solution and the false premises to the owner of the decision.
-- When you need an independent view (you may already be anchored by the documents, or a full redesign is on the table), follow `cold-start.md` in this directory to produce an unanchored version first, then compare.
+- Do not edit documents, decisions or code. Hand the solution to the owner of the decision. This is an instruction, not a permission setting.
+- If this session has already patched the current solution more than once, or a full redesign is on the table: follow `cold-start.md` in this directory to produce an unanchored version first, then compare. What you have read cannot be unread.
