@@ -34,44 +34,50 @@ flowchart TB
 
 不适合：日常改代码、写文案、脑暴（发散阶段不该被前提卡住）；也不适合用来理清*你自己*想要什么。它质疑的是结论，不是提问的人。
 
+不确定该审什么，就不带对象直接调用。它会说明用法，并从当前对话里列出几个可以审的对象让你选。
+
 ## 安装
 
-它用的是开放的 [Agent Skills](https://agentskills.io) 格式，**Claude Code** 和 **Codex** 都能用。只能手动调用，不会自己启动。
+它用的是开放的 [Agent Skills](https://agentskills.io) 格式，**Claude Code** 和 **Codex** 都能用。只能手动调用，不会自己启动。技能文件是英文的。
 
-**Claude Code**
+**Claude Code（插件）**
 
-```sh
-git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.claude/skills/premise-challenge
+在 Claude Code 会话里输入：
+
+```
+/plugin marketplace add zk-hypersolid/premise-challenge
+/plugin install premise-challenge@premise-challenge
 ```
 
-输入 `/premise-challenge <靶子>`。只想给某个项目用，就把文件复制到那个项目的 `.claude/skills/premise-challenge`。
+在终端里就用 `claude plugin marketplace add zk-hypersolid/premise-challenge`，再用 `claude plugin install premise-challenge@premise-challenge`。用法是输入 `/premise-challenge <靶子>`（全名 `/premise-challenge:premise-challenge` 也可以）。插件自带冷启动用的 subagent，名字是 `premise-challenge:cold-designer`。更新时运行 `claude plugin update premise-challenge@premise-challenge`，或者在 `/plugin` → Marketplaces 里给这个 marketplace 打开自动更新；第三方 marketplace 默认不自动更新。
 
-冷启动步骤还要装附带的 subagent，它被设置为不加载 CLAUDE.md 文件（`omitClaudeMd: true`）：
-
-```sh
-cp ~/.claude/skills/premise-challenge/agents/cold-designer.md ~/.claude/agents/
-```
-
-**Codex**
+**Codex（插件）**
 
 ```sh
-git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.agents/skills/premise-challenge
+codex plugin marketplace add zk-hypersolid/premise-challenge
+codex plugin add premise-challenge@premise-challenge
 ```
 
-输入 `$premise-challenge <靶子>`，或者在 `/skills` 里选。只想给某个项目用，就放到那个仓库的 `.agents/skills/premise-challenge`。冷启动用的 subagent 是 Claude Code 的功能；在 Codex 里，`cold-start.md` 要求 agent 直接说明这一步用不了，不拿别的东西顶替。
+用法是输入 `$premise-challenge:premise-challenge <靶子>`：Codex 会给插件里的技能加上插件名前缀。更新时运行 `codex plugin marketplace upgrade`。Codex 的 IDE 扩展用不了插件；在 IDE 扩展里，或者想用短名字 `$premise-challenge`，就手动安装。冷启动用的 subagent 是 Claude Code 的功能；在 Codex 里，`cold-start.md` 要求 agent 直接说明这一步用不了，不拿别的东西顶替。
 
-**中文版**：留一份源码副本，从里面装中文文件。把 `<技能目录>` 换成 `~/.claude/skills`（Claude Code）或 `~/.agents/skills`（Codex）：
+**手动安装（两边都适用）**
+
+留一份源码副本，从里面复制技能目录。把 `<技能目录>` 换成 `~/.claude/skills`（Claude Code）或 `~/.agents/skills`（Codex）；只给某个项目用，就换成那个仓库的 `.claude/skills` 或 `.agents/skills`：
 
 ```sh
 git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
-mkdir -p <技能目录>/premise-challenge
-cp ~/src/premise-challenge/zh-CN/*.md <技能目录>/premise-challenge/
-cp -R ~/src/premise-challenge/scripts ~/src/premise-challenge/agents <技能目录>/premise-challenge/
+cp -R ~/src/premise-challenge/skills/premise-challenge <技能目录>/
 ```
 
-**更新**：运行 `git -C <技能目录>/premise-challenge pull`。中文版先在 `~/src/premise-challenge` 里 pull，再把上面的复制命令跑一遍。如果已经有一个叫 `premise-challenge` 的技能，先把它移走。
+Claude Code 里输入 `/premise-challenge <靶子>`，Codex 里输入 `$premise-challenge <靶子>`。在 Claude Code 里，冷启动步骤还要装附带的 subagent，它被设置为不加载 CLAUDE.md 文件（`omitClaudeMd: true`）：
 
-**"只能手动调用"是怎么实现的**：Claude Code 读 `SKILL.md` 里的 `disable-model-invocation: true`；Codex 读 `agents/openai.yaml` 里的 `allow_implicit_invocation: false`。其他支持 Agent Skills 的工具也能加载 `SKILL.md`，但如果它们没有类似的设置，可能会自己启动这个技能；这些工具没有测过。
+```sh
+cp ~/src/premise-challenge/agents/cold-designer.md ~/.claude/agents/
+```
+
+更新时运行 `git -C ~/src/premise-challenge pull`，再复制一遍。
+
+**"只能手动调用"是怎么实现的**：Claude Code 读 `SKILL.md` 里的 `disable-model-invocation: true`；Codex 读技能目录里 `agents/openai.yaml` 的 `allow_implicit_invocation: false`。其他支持 Agent Skills 的工具也能加载 `SKILL.md`，但如果它们没有类似的设置，可能会自己启动这个技能；这些工具没有测过。
 
 ## 它怎么工作
 
@@ -199,12 +205,13 @@ flowchart TB
 
 ## 包含什么
 
-- [SKILL.md](SKILL.md)：方法、层级、收口规则和产出格式。
-- [cold-start.md](cold-start.md)：怎么先得到一版不受锚定的方案，再做对比。
-- [scripts/make-clean-room.sh](scripts/make-clean-room.sh)：导出一个 git ref，并删掉清单里列出的 agent 指令文件、文档、设计说明和决策记录。
+- [skills/premise-challenge/](skills/premise-challenge/)：技能本身。
+  - [SKILL.md](skills/premise-challenge/SKILL.md)：方法、层级、收口规则和产出格式。
+  - [cold-start.md](skills/premise-challenge/cold-start.md)：怎么先得到一版不受锚定的方案，再做对比。
+  - [scripts/make-clean-room.sh](skills/premise-challenge/scripts/make-clean-room.sh)：导出一个 git ref，并删掉清单里列出的 agent 指令文件、文档、设计说明和决策记录。
+  - [agents/openai.yaml](skills/premise-challenge/agents/openai.yaml)：Codex 的设置，让 Codex 不会自己启动这个技能。
 - [agents/cold-designer.md](agents/cold-designer.md)：Claude Code 用的 subagent，只根据 brief 做设计、不加载 CLAUDE.md 文件。
-- [agents/openai.yaml](agents/openai.yaml)：Codex 的设置，让 Codex 不会自己启动这个技能。
-- [zh-CN/](zh-CN/)：SKILL.md 和 cold-start.md 的中文版。
+- [.claude-plugin/](.claude-plugin/)：插件和 marketplace 的清单，Claude Code 和 Codex 都读。
 
 ## 怎么测的（非正式）
 
@@ -215,7 +222,8 @@ flowchart TB
 - 上一版（以质疑为主）在最强的几个模型上：除一个用例外全部通过。没通过的那个用例里，它对一个本来成立的说法提出了一个边缘情况的担忧，评分标准记为未通过。
 - 当前版本（以给出方案为主），在两个强模型上，用的是作者本地的这一版中文稿（不是本仓库里的文件），评分方式同上：上面 5 个用例每个模型各跑 1 次，成绩和上一版相同（各 9/10，各有一次边缘情况的失分）。另外新加了两个用例：计划中的修复方案在处理一个由操作顺序造成的坏状态，一个请求是评审这个修复方案，另一个是把修复任务做得更快。2 个用例 × 2 个模型 × 3 次，两版每次都推荐改顺序（共 24 次，每版 12 次）。所以在单一任务的短会话里，新写法没有测出提升；它针对的是长会话里的漂移，这些测试复现不了。当前版本 22 次运行里有 21 次以推荐方案开头（按有没有这一节做文本检索统计），篇幅比上一版长 5–20%。之后按一次外部审核改写了收口规则（只有错了的代价高于查的成本才去查未知项；可逆的决定，错了的代价就是改回来的成本）。新加的一个用例里，有一个承重、查起来慢、但改回来很便宜的未知项：新旧两种措辞在 12 次运行里都推荐先用金丝雀推进，而不是等着；三个旧用例仍然通过（6/6）。所以这次改动去掉了文字里的一处矛盾，但测试没有看到旧措辞真的造成问题。
 - 做减法这一轮（上面的方法：把方案拆成部分、从约束重推、逐个对比）。新用例：周报邮件重复发送，前后四轮分别打了补丁：分布式锁、锁心跳、去重表、重试队列。难的条件是：先让模型在多轮对话里自己提出这些补丁并被采纳，之后服务商支持了幂等键，再调用技能。两个版本都找到了幂等键（Opus 和 Fable，用的是作者本地的中文稿）。上一版 6 次里 2 次给出完整移除清单，2 次没有新增机制；这一版 6 次里 5 次给出完整移除清单，6 次都没有新增机制，整体 6 次通过 5 次，没过的那次把锁和锁心跳标成"可以留着"而不是删掉。一个用来防止"删过头"的用例，后来发现本身有更简单的正确答案，没有测到东西。旧用例上成绩和之前一样，只在"本来站得住的方案"用例上多失分一次（Opus 3 次里 1 次）。
-- 做减法之前发布的那版公开文本（中英文两份），在 Opus 和 Fable 上，上面 8 个用例各跑 1 次：32 次通过 29 次。3 次失分都在那个"公式本来正确"的用例上：评分标准期待"站得住"，技能的结论是"关键未知挡住了决定"，理由是按样本量，数据排除不了公式需要的那个条件。我们按失分计，但它的论证有实在的依据。现在仓库里的这两份文件在 Opus 上跑过 3 次（英文版跑了顺序用例和重复邮件用例，中文版跑了顺序用例），3 次都通过，上面的产出示例就是其中一次。还没有做更大范围的运行。
+- 做减法之前发布的那版公开文本（中英文两份），在 Opus 和 Fable 上，上面 8 个用例各跑 1 次：32 次通过 29 次。3 次失分都在那个"公式本来正确"的用例上：评分标准期待"站得住"，技能的结论是"关键未知挡住了决定"，理由是按样本量，数据排除不了公式需要的那个条件。我们按失分计，但它的论证有实在的依据。加入下面的「不带对象」一节之前，现在仓库里的方法正文在 Opus 上跑过 3 次（英文版跑了顺序用例和重复邮件用例，中文版跑了顺序用例），3 次都通过，上面的产出示例就是其中一次。还没有做更大范围的运行。
+- 「不带对象」一节，在 Claude Code 2.1.287（Opus）和 Codex CLI 0.162.1 上各跑 1 到 2 次。先在对话里提到三个决策，再不带对象调用：技能说明了用法，把这三个决策列为候选、问用哪一个，没有开始走方法（Claude Code 2/2，Codex 1/1）。在空会话里不带对象调用：它请用户给出对象（Claude Code 1/1）。用上面的 SLA 例子作对象调用：它照常走方法，找出了「故障互相独立」这条不成立的前提（两边各 1/1）。去掉这一节后，同样的不带对象调用会直接对三个决策都开始走方法（Codex 1/1；Claude Code 那次 5 分钟内没有跑完）。
 - 早一版与"不装技能、只说'挑战一下这些前提'"相比，各跑 8 次：找出错误前提 7/8 对 5/8；放过本来成立的前提 7/8 对 4/8。这个样本量下两项差距都不显著。之后的两版都没有和这个基线比较过。
 - 没有看到的效果：分层没有让强模型挖得更深，它们被要求挑战前提时本来就会挖。这个技能想补的是刹车（少硬造疑点）、建立在核实过的前提上的推荐方案，以及稳定的产出格式；上面的结果对前者只是有迹象，不能算证实。安全边界没有测过。
 - 小模型更常硬造疑点。这个技能请用强模型。

@@ -1,0 +1,14 @@
+{
+  "name": "premise-challenge",
+  "description": "Premise Challenge: an agent skill for Claude Code and Codex.",
+  "owner": {
+    "name": "zk-hypersolid"
+  },
+  "plugins": [
+    {
+      "name": "premise-challenge",
+      "source": "./",
+      "description": "Rebuild a solution from verified constraints, keep what they require, list the rest for removal, or confirm the current one."
+    }
+  ]
+}

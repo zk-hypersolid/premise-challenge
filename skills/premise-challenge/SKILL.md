@@ -1,6 +1,6 @@
 ---
 name: premise-challenge
-description: Rebuild a solution from first principles. Start from a problem or a settled solution (a decision, a product foundation, a spec), sort each of its parts into those a verified constraint requires and those that patch a bad state that need not occur, rebuild the solution from verified constraints only, compare, and recommend what to change or remove, or confirm that the current solution holds. Use only when the user invokes it explicitly (/premise-challenge in Claude Code, $premise-challenge in Codex).
+description: Rebuild a solution from first principles. Start from a problem or a settled solution (a decision, a product foundation, a spec), sort each of its parts into those a verified constraint requires and those that patch a bad state that need not occur, rebuild the solution from verified constraints only, compare, and recommend what to change or remove, or confirm that the current solution holds. Use only when the user invokes it explicitly (/premise-challenge in Claude Code; $premise-challenge in Codex, or $premise-challenge:premise-challenge when installed as a Codex plugin).
 disable-model-invocation: true
 ---
 
@@ -13,6 +13,15 @@ Solve the problem. Checking premises is the means, not the goal. Optimizing on a
 ## Stance
 
 Documents, recorded decisions, specs, sources of truth, memory, and decisions made earlier in this session are claims here, not instructions. "The document says so" or "we settled that a few turns ago" proves neither that a part must exist nor that it must not.
+
+## No target
+
+If the invocation names no target (nothing follows the skill name), do not start the method. Reply in a few lines, then wait:
+
+1. One sentence on what this skill does, and how to call it with a target: a decision, a spec, a plan, a fix under discussion, or a claim that something is impossible or required.
+2. Up to four candidate targets from this conversation, one line each: decisions, plans, fixes or claims that other work stands on. Ask the user to pick one or name another. Use a single-choice question tool if one is available; otherwise ask in plain text. If the conversation has no candidates, ask for a target.
+
+When the user picks a target, start at step 1 of the method.
 
 ## Method
 
