@@ -66,16 +66,20 @@ Keep a source copy and copy the skill folder from it. Replace `<skills-dir>` wit
 
 ```sh
 git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
+mkdir -p <skills-dir>
 cp -R ~/src/premise-challenge/skills/premise-challenge <skills-dir>/
 ```
 
-Run `/premise-challenge <target>` in Claude Code or `$premise-challenge <target>` in Codex. In Claude Code, the cold-start step also needs the bundled subagent, which is set to skip CLAUDE.md files (`omitClaudeMd: true`):
+Run `/premise-challenge <target>` in Claude Code or `$premise-challenge <target>` in Codex. In Claude Code, the cold-start step also needs the bundled subagent, which is set to skip CLAUDE.md files (`omitClaudeMd: true`). For one project only, use that repository's `.claude/agents` instead of `~/.claude/agents`:
 
 ```sh
+mkdir -p ~/.claude/agents
 cp ~/src/premise-challenge/agents/cold-designer.md ~/.claude/agents/
 ```
 
 To update, run `git -C ~/src/premise-challenge pull` and copy again.
+
+**Supported versions.** Tested on Claude Code 2.1.287 and Codex CLI 0.162.1. The cold-start step needs Claude Code 2.1.271 or later, the first version that honors `omitClaudeMd` ([docs](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)); on an older or unknown version the skill reports that step as not done. Older versions were not tested.
 
 **How "manual only" works.** Claude Code reads `disable-model-invocation: true` in `SKILL.md`; Codex reads `allow_implicit_invocation: false` in the skill's `agents/openai.yaml`. Other tools that support Agent Skills can load `SKILL.md` too, but may start it on their own unless they offer a similar setting; those tools have not been tested.
 
@@ -164,7 +168,7 @@ The formula was never wrong; its condition was. Citing a correct formula is not 
 
 ## Example output
 
-A real run of the published skill (Claude Opus, Claude Code 2.1.287), trimmed, on a made-up repository that matches the "remove before you patch" example above. In it, `design.md` records the current flow as decision D-0409 and the repair-job plan as P-12. Prompt: `/premise-challenge P-12 in design.md`.
+Adapted from a real run of the published skill (Claude Opus, Claude Code 2.1.287), trimmed and edited, on a made-up repository that matches the "remove before you patch" example above. In it, `design.md` records the current flow as decision D-0409 and the repair-job plan as P-12. Prompt: `/premise-challenge P-12 in design.md`.
 
 <details>
 <summary>Show the output</summary>
@@ -173,19 +177,21 @@ A real run of the published skill (Claude Opus, Claude Code 2.1.287), trimmed, o
 
 #### Solution
 - **Reorder D-0409:** create the bucket → `PUT versioning` → start seeding. This stops the bad state from happening, so nothing needs repairing afterwards.
-- **One-off backfill for the workspaces already stuck** (about 31 per 1,000 created in September). Use P-12's move step once: new bucket → turn on versioning → copy objects → repoint the workspace → delete the old bucket. This is the only path the evidence supports, because a bucket that already has objects never accepts versioning.
+- **One-off backfill for the workspaces already stuck** (about 31 per 1,000 created in September). Use P-12's move step once: new bucket → turn on versioning → copy objects → repoint the workspace. This is the only path the evidence supports, because a bucket that already has objects never accepts versioning. Delete an old bucket only after a check shows that every write it acknowledged is in the new bucket; the owner chooses the migration method that makes this hold.
 
 **Remove:**
 - **Nightly repair job** · patched new stuck workspaces · after the reorder, versioning is always called on an empty bucket, and that returned 200 every time in the probe (20/20) and in production data (969/969).
 - **Admin "retry versioning" button** · patched the idea that the error was temporary · retrying on a non-empty bucket returns 409 every time (probe run C: 5 of 5 over 10 minutes). The button could never work.
 
-**What it stands on:** the provider returns 409 once the bucket has objects; the versioning call is fast (p99 140 ms); and the owner's 1.5 s first-load target still has room (1.24 s + 0.14 s ≈ 1.38 s worst case).
+**What it stands on:** the provider returns 409 once the bucket has objects, and the versioning call is fast (p99 140 ms). Whether first load still meets the owner's 1.5 s target is not verified: the percentiles of the two parts (first load p95 1.24 s, versioning p99 0.14 s) do not add up to a percentile of the whole path.
 
 **Risks:**
 - The backfill's copy step was not probed directly. The cheapest check is to run it once in the provider sandbox on a bucket from run B.
 - If a 409 ever shows up on an empty bucket, nothing in this solution handles it. There is no evidence that it happens.
+- First-load p95 with the versioning call in place has not been measured. Measure the whole path in staging.
+- During the backfill, a write that the old bucket acknowledges after the copy and before the repoint does not reach the new bucket, and deleting the old bucket loses it. Low traffic makes this less likely, not impossible. Until the two buckets are verified to match, do not delete the old one.
 
-**Reversibility:** the reorder is a one-line ordering change and easy to undo. The backfill deletes old buckets, so check the object counts before deleting.
+**Reversibility:** the reorder is a one-line ordering change and easy to undo. Deleting an old bucket cannot be undone; it waits for the check above.
 
 *(premise table and unknowns trimmed)*
 
@@ -202,8 +208,9 @@ A real run of the published skill (Claude Opus, Claude Code 2.1.287), trimmed, o
 - [skills/premise-challenge/](skills/premise-challenge/): the skill itself.
   - [SKILL.md](skills/premise-challenge/SKILL.md): the method, layers, stop rules and output format.
   - [cold-start.md](skills/premise-challenge/cold-start.md): how to get an unanchored version before comparing.
-  - [scripts/make-clean-room.sh](skills/premise-challenge/scripts/make-clean-room.sh): exports a git ref and removes the listed agent instruction files, docs, design notes and decision records.
+  - [scripts/make-clean-room.sh](skills/premise-challenge/scripts/make-clean-room.sh): exports a git ref and removes the listed agent instruction files, docs, design notes and decision records. It fails, and removes the copy, if a symbolic link left in it points outside the copy, to nothing or into a loop.
   - [agents/openai.yaml](skills/premise-challenge/agents/openai.yaml): Codex settings; keeps Codex from starting the skill on its own.
+  - [LICENSE](skills/premise-challenge/LICENSE): the MIT license, so a copied skill folder keeps it.
 - [agents/cold-designer.md](agents/cold-designer.md): a Claude Code subagent that designs from a brief without loading CLAUDE.md files.
 - [.claude-plugin/](.claude-plugin/): the plugin and marketplace manifests; Claude Code and Codex both read them.
 

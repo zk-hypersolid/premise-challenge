@@ -66,16 +66,20 @@ codex plugin add premise-challenge@premise-challenge
 
 ```sh
 git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
+mkdir -p <技能目录>
 cp -R ~/src/premise-challenge/skills/premise-challenge <技能目录>/
 ```
 
-Claude Code 里输入 `/premise-challenge <靶子>`，Codex 里输入 `$premise-challenge <靶子>`。在 Claude Code 里，冷启动步骤还要装附带的 subagent，它被设置为不加载 CLAUDE.md 文件（`omitClaudeMd: true`）：
+Claude Code 里输入 `/premise-challenge <靶子>`，Codex 里输入 `$premise-challenge <靶子>`。在 Claude Code 里，冷启动步骤还要装附带的 subagent，它被设置为不加载 CLAUDE.md 文件（`omitClaudeMd: true`）。只给某个项目用，就把 `~/.claude/agents` 换成那个仓库的 `.claude/agents`：
 
 ```sh
+mkdir -p ~/.claude/agents
 cp ~/src/premise-challenge/agents/cold-designer.md ~/.claude/agents/
 ```
 
 更新时运行 `git -C ~/src/premise-challenge pull`，再复制一遍。
+
+**支持的版本**：在 Claude Code 2.1.287 和 Codex CLI 0.162.1 上测过。冷启动步骤需要 Claude Code 2.1.271 或更新的版本，从这个版本起 `omitClaudeMd` 才生效（[文档](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)）；版本更旧或确认不了时，技能会报告这一步没有做。更旧的版本没有测过。
 
 **"只能手动调用"是怎么实现的**：Claude Code 读 `SKILL.md` 里的 `disable-model-invocation: true`；Codex 读技能目录里 `agents/openai.yaml` 的 `allow_implicit_invocation: false`。其他支持 Agent Skills 的工具也能加载 `SKILL.md`，但如果它们没有类似的设置，可能会自己启动这个技能；这些工具没有测过。
 
@@ -164,7 +168,7 @@ flowchart TB
 
 ## 产出示例
 
-已发布技能的一次真实运行（Claude Opus，Claude Code 2.1.287），有删节。仓库是虚构的，对应上面"先消除，再修补"的例子。其中 `design.md` 把现在的流程记为决策 D-0409，把修复任务方案记为 P-12。输入：`/premise-challenge design.md 里的 P-12`。
+根据已发布技能的一次真实运行（Claude Opus，Claude Code 2.1.287）整理，有删节和改写。仓库是虚构的，对应上面"先消除，再修补"的例子。其中 `design.md` 把现在的流程记为决策 D-0409，把修复任务方案记为 P-12。输入：`/premise-challenge design.md 里的 P-12`。
 
 <details>
 <summary>展开产出</summary>
@@ -177,21 +181,21 @@ flowchart TB
 
 **做什么**
 - 建桶 → `PUT versioning` 拿到 200 → 再开始 seeding。
-- 已有的约 3% 卡住的工作区，按 P-12 的"新建桶 → 开 versioning → 复制对象 → 切换指向 → 删旧桶"手动跑一次。之后不会再有新的卡住工作区，所以这是一次性的，不需要每晚跑。
+- 已有的约 3% 卡住的工作区，按 P-12 的"新建桶 → 开 versioning → 复制对象 → 切换指向"手动跑一次。之后不会再有新的卡住工作区，所以这是一次性的，不需要每晚跑。旧桶要等核实过旧桶确认的每一笔写入都已在新桶里，才能删；用哪种迁移方式做到这一点，由决策负责人定。
 
 **移除**
 - 夜间修复任务。它补的是"每天都有新的工作区卡住"这个状态。调换顺序后，调用 versioning 时桶一定是空的，这个状态不会再出现。它自带的坏状态（复制过程中用户还在写入、切换和删桶的竞态、卡住到当晚修复之间没有 versioning）也一并消失。
 - "重试 versioning"按钮。它补的是"409 只是暂时错误，重试能好"这个假设，而这个假设不成立：探针 Run C 里，有对象的桶 10 分钟内重试 5 次，5 次都是 409。这个按钮永远不会成功。
 
-**站在哪几条约束上**：C1（桶里有对象时 versioning 返回 409，而且一直是 409）、C2（3.1% 的 409 全部是 seeding 先完成的情况）、C3（1.5 s 首屏目标调换后仍然满足）。证据见下表。
+**站在哪几条约束上**：C1（桶里有对象时 versioning 返回 409，而且一直是 409）、C2（3.1% 的 409 全部是 seeding 先完成的情况）。证据见下表。调换后首屏是否仍满足 1.5 s 目标，没有核实，见风险。
 
 **风险**
-- 首屏会多等一次 versioning 调用，沙箱数据是 p50 78 ms、p99 140 ms。即使这段时间全部叠加到首屏上，p95 也只是从 1.24 s 变成约 1.38 s，仍低于 1.5 s。但生产环境的 versioning 延迟没有实测过。
-- 一次性迁移会写生产数据，期间用户可能在写入。迁移时要冻结写入，或者选低峰时段。
+- 首屏会多等一次 versioning 调用，沙箱数据是 p50 78 ms、p99 140 ms。两段各自的分位数（首屏 p95 1.24 s、versioning p99 0.14 s）不能相加成整条链路的分位数，所以首屏 p95 是否仍低于 1.5 s 没有核实，要在预发环境实测加上 versioning 调用后的整条链路。生产环境的 versioning 延迟也没有实测过。
+- 一次性迁移会写生产数据，期间用户可能在写入：复制完成后、切换指向前，旧桶确认过的写入不会进入新桶，删掉旧桶就丢了。低峰时段只能让这种情况少一些，不能保证不发生。核实新旧两个桶一致之前，不要删旧桶。
 
-**可逆性**：调换顺序只是改代码，随时可以改回来。
+**可逆性**：调换顺序只是改代码，随时可以改回来。删旧桶不可逆，要等上面的核实通过之后才做。
 
-**最便宜的验证**：在 provider 沙箱里跑"建桶 → PUT versioning → 上传 12 个文件"，确认返回 200 且对象带版本；在预发环境量一次首屏 p95。
+**最便宜的验证**：在 provider 沙箱里跑"建桶 → PUT versioning → 上传 12 个文件"，确认返回 200 且对象带版本；在预发环境量一次加上 versioning 调用后整条首屏链路的 p95。
 
 *（前提表和未知项略）*
 
@@ -208,8 +212,9 @@ flowchart TB
 - [skills/premise-challenge/](skills/premise-challenge/)：技能本身。
   - [SKILL.md](skills/premise-challenge/SKILL.md)：方法、层级、收口规则和产出格式。
   - [cold-start.md](skills/premise-challenge/cold-start.md)：怎么先得到一版不受锚定的方案，再做对比。
-  - [scripts/make-clean-room.sh](skills/premise-challenge/scripts/make-clean-room.sh)：导出一个 git ref，并删掉清单里列出的 agent 指令文件、文档、设计说明和决策记录。
+  - [scripts/make-clean-room.sh](skills/premise-challenge/scripts/make-clean-room.sh)：导出一个 git ref，并删掉清单里列出的 agent 指令文件、文档、设计说明和决策记录。副本里留下的符号链接如果指向副本外、指向不存在的路径或形成环路，脚本会失败并删掉副本。
   - [agents/openai.yaml](skills/premise-challenge/agents/openai.yaml)：Codex 的设置，让 Codex 不会自己启动这个技能。
+  - [LICENSE](skills/premise-challenge/LICENSE)：MIT 许可证，单独复制技能目录时也带着它。
 - [agents/cold-designer.md](agents/cold-designer.md)：Claude Code 用的 subagent，只根据 brief 做设计、不加载 CLAUDE.md 文件。
 - [.claude-plugin/](.claude-plugin/)：插件和 marketplace 的清单，Claude Code 和 Codex 都读。
 
