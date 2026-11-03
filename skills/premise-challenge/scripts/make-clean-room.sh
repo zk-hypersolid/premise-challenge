@@ -7,14 +7,20 @@
 # the copy must resolve to an existing path inside the copy; otherwise the
 # script fails. On any failure after the output directory is created, the
 # script removes that directory, so a partial copy is never left for use.
+#
+# A path can end in a newline, and command substitution drops trailing
+# newlines. So every path captured below is printed with a trailing ".",
+# and the "." and the newline before it are then removed: the path keeps
+# its exact bytes.
 set -eu
 
 [ $# -ge 2 ] || { echo "usage: $0 <repo> <out-dir> [ref] [extra-path ...]" >&2; exit 2; }
 repo="$1"; out="$2"; ref="${3:-HEAD}"
 [ $# -ge 3 ] && shift 3 || shift $#
 
-top=$(cd "$repo" && git rev-parse --show-toplevel) || { echo "refuse: $repo is not a git repository" >&2; exit 1; }
-repo=$(cd "$top" && pwd -P)
+top=$(cd "$repo" && git rev-parse --show-toplevel && echo .) || { echo "refuse: $repo is not a git repository" >&2; exit 1; }
+top=${top%??}
+repo=$(cd "$top" && pwd -P && echo .); repo=${repo%??}
 base=$(git -C "$repo" rev-parse --verify "$ref^{commit}") || { echo "refuse: unknown ref $ref" >&2; exit 1; }
 
 [ -e "$out" ] || [ -L "$out" ] && { echo "refuse: $out exists" >&2; exit 1; }
@@ -29,9 +35,10 @@ for p in "$@"; do
     [ -n "$rest" ] || break
   done
 done
-parent=$(dirname "$out")
+parent=$(dirname "$out" && echo .); parent=${parent%??}
 [ -d "$parent" ] || { echo "refuse: parent directory $parent does not exist" >&2; exit 1; }
-case "$(cd "$parent" && pwd -P)/" in
+parent=$(cd "$parent" && pwd -P && echo .); parent=${parent%??}
+case "$parent/" in
   "$repo"/*) echo "refuse: out-dir must be outside the repository" >&2; exit 1 ;;
 esac
 
@@ -50,7 +57,7 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 mkdir "$out"
-out=$(cd "$out" && pwd -P)
+out=$(cd "$out" && pwd -P && echo .); out=${out%??}
 created="$out"
 
 # Write the archive to a file first, so a failing git archive cannot hide
@@ -99,14 +106,19 @@ bad=$(find . -type l -exec sh -c '
     while [ -L "$p" ]; do
       n=$((n + 1))
       if [ "$n" -gt 40 ]; then ok=0; break; fi
-      t=$(readlink "$p") || { ok=0; break; }
-      case $t in /*) p=$t ;; *) p=$(dirname "$p")/$t ;; esac
+      # readlink -n prints the target with no newline of its own; plain
+      # readlink on macOS adds none after a target that ends in one.
+      t=$(readlink -n "$p" && echo .) || { ok=0; break; }
+      t=${t%?}
+      case $t in /*) p=$t ;; *) d=$(dirname "$p" && echo .); p=${d%??}/$t ;; esac
     done
     if [ "$ok" = 1 ] && [ -e "$p" ]; then
       if [ -d "$p" ]; then
-        r=$(cd "$p" 2>/dev/null && pwd -P) || r=""
+        r=$(cd "$p" 2>/dev/null && pwd -P && echo .) && r=${r%??} || r=""
       else
-        r=$(cd "$(dirname "$p")" 2>/dev/null && pwd -P) && r=$r/$(basename "$p") || r=""
+        d=$(dirname "$p" && echo .); d=${d%??}
+        b=$(basename "$p" && echo .); b=${b%??}
+        r=$(cd "$d" 2>/dev/null && pwd -P && echo .) && r=${r%??}/$b || r=""
       fi
       case "$r/" in "$root"/*) continue ;; esac
     fi
