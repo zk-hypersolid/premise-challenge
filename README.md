@@ -34,44 +34,50 @@ flowchart TB
 
 Do not use it for everyday edits, copywriting or brainstorming (divergent work should not stop for premises), or to clarify what *you* want. It questions conclusions, not the person asking.
 
+Not sure what to point it at? Run it with no target. It explains how to call it and lists candidate targets from the current conversation for you to pick.
+
 ## Install
 
 It uses the open [Agent Skills](https://agentskills.io) format and works in **Claude Code** and **Codex**. It is invoked by hand only and never starts on its own.
 
-**Claude Code**
+**Claude Code (plugin)**
 
-```sh
-git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.claude/skills/premise-challenge
+In a Claude Code session:
+
+```
+/plugin marketplace add zk-hypersolid/premise-challenge
+/plugin install premise-challenge@premise-challenge
 ```
 
-Run `/premise-challenge <target>`. For one project only, copy the files into that project's `.claude/skills/premise-challenge` instead.
+From a shell, use `claude plugin marketplace add zk-hypersolid/premise-challenge`, then `claude plugin install premise-challenge@premise-challenge`. Run `/premise-challenge <target>` (the full name `/premise-challenge:premise-challenge` also works). The plugin includes the cold-start subagent, `premise-challenge:cold-designer`. To update, run `claude plugin update premise-challenge@premise-challenge`, or turn on auto-update for this marketplace under `/plugin` → Marketplaces; it is off by default for third-party marketplaces.
 
-For the cold-start step, also install the bundled subagent, which is set to skip CLAUDE.md files (`omitClaudeMd: true`):
-
-```sh
-cp ~/.claude/skills/premise-challenge/agents/cold-designer.md ~/.claude/agents/
-```
-
-**Codex**
+**Codex (plugin)**
 
 ```sh
-git clone https://github.com/zk-hypersolid/premise-challenge.git ~/.agents/skills/premise-challenge
+codex plugin marketplace add zk-hypersolid/premise-challenge
+codex plugin add premise-challenge@premise-challenge
 ```
 
-Run `$premise-challenge <target>`, or pick it from `/skills`. For one project only, put it in that repository's `.agents/skills/premise-challenge`. The cold-start subagent is a Claude Code feature; in Codex, `cold-start.md` tells the agent to say so instead of running that step with a substitute.
+Run `$premise-challenge:premise-challenge <target>`: Codex prefixes plugin skills with the plugin name. To update, run `codex plugin marketplace upgrade`. Codex plugins are not available in the IDE extension; use the manual install there, or if you want the short name `$premise-challenge`. The cold-start subagent is a Claude Code feature; in Codex, `cold-start.md` tells the agent to say so instead of running that step with a substitute.
 
-**Chinese version.** Keep a source copy and install the Chinese files from it. Replace `<skills-dir>` with `~/.claude/skills` (Claude Code) or `~/.agents/skills` (Codex):
+**Manual install (either tool)**
+
+Keep a source copy and copy the skill folder from it. Replace `<skills-dir>` with `~/.claude/skills` (Claude Code) or `~/.agents/skills` (Codex), or with a repository's `.claude/skills` or `.agents/skills` for one project only:
 
 ```sh
 git clone https://github.com/zk-hypersolid/premise-challenge.git ~/src/premise-challenge
-mkdir -p <skills-dir>/premise-challenge
-cp ~/src/premise-challenge/zh-CN/*.md <skills-dir>/premise-challenge/
-cp -R ~/src/premise-challenge/scripts ~/src/premise-challenge/agents <skills-dir>/premise-challenge/
+cp -R ~/src/premise-challenge/skills/premise-challenge <skills-dir>/
 ```
 
-**Updating.** Run `git -C <skills-dir>/premise-challenge pull`. For the Chinese version, pull `~/src/premise-challenge` and run the copy commands again. If you already have a skill named `premise-challenge`, move it away first.
+Run `/premise-challenge <target>` in Claude Code or `$premise-challenge <target>` in Codex. In Claude Code, the cold-start step also needs the bundled subagent, which is set to skip CLAUDE.md files (`omitClaudeMd: true`):
 
-**How "manual only" works.** Claude Code reads `disable-model-invocation: true` in `SKILL.md`; Codex reads `allow_implicit_invocation: false` in `agents/openai.yaml`. Other tools that support Agent Skills can load `SKILL.md` too, but may start it on their own unless they offer a similar setting; those tools have not been tested.
+```sh
+cp ~/src/premise-challenge/agents/cold-designer.md ~/.claude/agents/
+```
+
+To update, run `git -C ~/src/premise-challenge pull` and copy again.
+
+**How "manual only" works.** Claude Code reads `disable-model-invocation: true` in `SKILL.md`; Codex reads `allow_implicit_invocation: false` in the skill's `agents/openai.yaml`. Other tools that support Agent Skills can load `SKILL.md` too, but may start it on their own unless they offer a similar setting; those tools have not been tested.
 
 ## How it works
 
@@ -193,12 +199,13 @@ A real run of the published skill (Claude Opus, Claude Code 2.1.287), trimmed, o
 
 ## What's included
 
-- [SKILL.md](SKILL.md): the method, layers, stop rules and output format.
-- [cold-start.md](cold-start.md): how to get an unanchored version before comparing.
-- [scripts/make-clean-room.sh](scripts/make-clean-room.sh): exports a git ref and removes the listed agent instruction files, docs, design notes and decision records.
+- [skills/premise-challenge/](skills/premise-challenge/): the skill itself.
+  - [SKILL.md](skills/premise-challenge/SKILL.md): the method, layers, stop rules and output format.
+  - [cold-start.md](skills/premise-challenge/cold-start.md): how to get an unanchored version before comparing.
+  - [scripts/make-clean-room.sh](skills/premise-challenge/scripts/make-clean-room.sh): exports a git ref and removes the listed agent instruction files, docs, design notes and decision records.
+  - [agents/openai.yaml](skills/premise-challenge/agents/openai.yaml): Codex settings; keeps Codex from starting the skill on its own.
 - [agents/cold-designer.md](agents/cold-designer.md): a Claude Code subagent that designs from a brief without loading CLAUDE.md files.
-- [agents/openai.yaml](agents/openai.yaml): Codex settings; keeps Codex from starting the skill on its own.
-- [zh-CN/](zh-CN/): Chinese versions of SKILL.md and cold-start.md.
+- [.claude-plugin/](.claude-plugin/): the plugin and marketplace manifests; Claude Code and Codex both read them.
 
 ## How it was tested (informal)
 
@@ -209,7 +216,8 @@ These are the author's informal local tests. The cases, transcripts and rubric a
 - Previous, critique-first version, strongest models: passed every case but one. In that case it raised an edge-case concern about a sound claim, which the rubric counted as a miss.
 - Current, solution-first version, on two strong models, using the author's local Chinese draft of this version (not the files in this repository), graded the same way: on the five cases above, one run per case and model, it scored the same as the previous version (9/10 each, one edge-case miss each). Two new cases were added in which a planned fix handled a bad state that an ordering choice created; in one the request was to review the fix, in the other to make the fix faster. Over 2 cases × 2 models × 3 runs, both versions recommended changing the order every time (24 of 24 runs, 12 per version). So in short, single-task runs the new wording shows no gain; it is aimed at drift in long sessions, which these tests do not reproduce. The current version's output led with a recommended solution in 21 of its 22 runs (counted by a text search for that section) and was 5–20% longer than the previous version's. The stop rules were then reworded after an outside review (only check an unknown when being wrong costs more than checking; for a reversible decision, being wrong costs what it takes to change back). On a new case with a load-bearing unknown that was slow to check but cheap to undo, both wordings recommended going ahead with a canary rather than waiting, in 12 of 12 runs; three older cases still passed (6 of 6). So this change removes a contradiction in the text, but the tests did not show the old wording causing a problem.
 - Subtraction round (the method above: break the solution into parts, rebuild from constraints, compare). New case: a weekly email sent twice, patched over four rounds with a lock, a lock heartbeat, a dedup table and a retry queue. In the hard condition the model first proposed those patches itself, turn by turn, and they were accepted; then the provider gained an idempotency key and the skill was called. Both versions found the key (Opus and Fable, the author's local Chinese draft). The previous version gave a complete removal list in 2 of 6 runs and added no extra mechanism in 2 of 6. This version gave a complete removal list in 5 of 6 and added no extra mechanism in 6 of 6; it passed 5 of 6 overall, the one miss being a run that kept the lock and its heartbeat as "optional" instead of removing them. A case meant to catch over-removal turned out to have a simpler valid answer, so it measured nothing. On the older cases this version scored as before, except one more miss on the "sound foundation" case (1 of 3 Opus runs).
-- The previously published text (the English and Chinese files before the subtraction round), on Opus and Fable, one run per case over the eight cases above: 29 of 32 passed. All three misses were on the sound-formula case: the rubric expects "holds", and the skill answered "a key unknown blocks the decision", arguing from the sample size that the data could not rule out the condition the formula needs. We count them as misses, though the argument has a real basis. The files now in this repository have had three runs on Opus (English on the ordering case and the duplicate-email case, Chinese on the ordering case), all passed; the example output above is one of them. They have not had a wider run.
+- The previously published text (the English and Chinese files before the subtraction round), on Opus and Fable, one run per case over the eight cases above: 29 of 32 passed. All three misses were on the sound-formula case: the rubric expects "holds", and the skill answered "a key unknown blocks the decision", arguing from the sample size that the data could not rule out the condition the formula needs. We count them as misses, though the argument has a real basis. Before the no-target section below was added, the method text now in this repository had three runs on Opus (English on the ordering case and the duplicate-email case, Chinese on the ordering case), all passed; the example output above is one of them. It has not had a wider run.
+- No-target section, Claude Code 2.1.287 (Opus) and Codex CLI 0.162.1, one or two runs each. Called with no target after a conversation that named three decisions, the skill explained how to call it, listed those three as candidates and asked which one to take, without starting the method (Claude Code 2 of 2, Codex 1 of 1). Called with no target in an empty session, it asked for a target (Claude Code 1 of 1). Called with the SLA example above as the target, it ran the method and found the false independence premise (1 of 1 in each tool). Without the section, the same no-target call started the method on all three decisions (Codex 1 of 1; in Claude Code the run did not finish within 5 minutes).
 - An earlier version vs. the plain prompt "challenge these premises", 8 runs each: found the false premise 7/8 vs 5/8; left the sound premise alone 7/8 vs 4/8. Neither difference is statistically significant at this sample size. Neither later version was compared with the plain prompt.
 - What we did not see: the layers did not make strong models dig deeper; they already do when asked. The skill is meant to add braking (fewer invented doubts), a recommendation built on verified premises, and a consistent output; the results above hint at the first but do not establish it. The safety boundary was not tested.
 - Smaller models invented doubts more often. Use a strong model.

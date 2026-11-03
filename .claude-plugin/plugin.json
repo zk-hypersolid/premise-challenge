@@ -1,0 +1,9 @@
+{
+  "name": "premise-challenge",
+  "description": "Rebuild a solution from verified constraints, keep what they require, list the rest for removal, or confirm the current one. Invoked by hand only.",
+  "author": { "name": "zk-hypersolid" },
+  "homepage": "https://github.com/zk-hypersolid/premise-challenge",
+  "repository": "https://github.com/zk-hypersolid/premise-challenge",
+  "license": "MIT",
+  "keywords": ["first-principles", "premises", "review", "agent-skills"]
+}
